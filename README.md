@@ -28,7 +28,7 @@ directly at the repository:
   },
   opts = {},
   config = function(_, opts)
-    require("jest-runner").setup(opts)
+    require("javascript-test-runner").setup(opts)
   end,
 }
 ```
@@ -52,7 +52,7 @@ use its SSH clone URL:
   },
   opts = {},
   config = function(_, opts)
-    require("jest-runner").setup(opts)
+    require("javascript-test-runner").setup(opts)
   end,
 }
 ```
@@ -69,10 +69,10 @@ ssh -T git@github.com
 The current Jest backend provides these commands:
 
 ```text
-:Jest file
-:Jest folder
-:Jest project
-:Jest line
+:Test file
+:Test folder
+:Test project
+:Test line
 ```
 
 Default keymaps:
@@ -103,9 +103,10 @@ The command name and default keymaps can be changed:
       file = "<Leader>tf",
       line = "<Leader>tl",
     },
+    dap = false,
   },
   config = function(_, opts)
-    require("jest-runner").setup(opts)
+    require("javascript-test-runner").setup(opts)
   end,
 }
 ```
@@ -117,3 +118,11 @@ Set either keymap to `false` to disable it.
 The plugin currently provides a Jest-backed terminal runner for file, folder,
 project, and current-line test execution. The backend is intentionally kept
 separate so additional JavaScript test frameworks can be added later.
+
+## Testing
+
+The test suite uses `mini.test` and runs in headless Neovim. Testing requires
+Neovim 0.10 or newer and Git; the Makefile fetches `mini.nvim` into
+`deps/mini.nvim` on the first run. Run `make test` for the full suite, or
+`make test-file FILE=tests/test_setup.lua` to run a single test file.
+Use `NVIM_BIN=/path/to/nvim make test` to select a specific Neovim binary.
