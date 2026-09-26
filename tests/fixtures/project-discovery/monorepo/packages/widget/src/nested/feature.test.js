@@ -1,0 +1,1 @@
+describe("nested widget package", () => {})
