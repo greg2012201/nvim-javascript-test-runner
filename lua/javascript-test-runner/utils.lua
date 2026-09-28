@@ -1,4 +1,5 @@
 local Module = {}
+local Project = require("javascript-test-runner.project")
 
 local modes = {
 	file = true,
@@ -15,20 +16,12 @@ local function get_current_folder_path()
 	return path
 end
 
-local function get_project_root()
-	local current_dir = get_current_folder_path()
-
-	while true do
-		if vim.fn.filereadable(current_dir .. "/package.json") == 1 then
-			return current_dir
-		end
-
-		local parent_dir = vim.fn.fnamemodify(current_dir, ":h")
-		if parent_dir == current_dir then
-			return nil
-		end
-		current_dir = parent_dir
+local function get_project_context()
+	local path = vim.fn.expand("%:p")
+	if path == "" then
+		path = vim.fn.getcwd()
 	end
+	return Project.detect(path)
 end
 
 local function get_current_test_file()
@@ -106,12 +99,12 @@ function Module.build_jest_invocation(mode)
 		return nil, "Invalid Jest mode. Use file, folder, project, or line."
 	end
 
-	local project_root = get_project_root()
-	if not project_root then
+	local project_context = get_project_context()
+	if not project_context then
 		return nil, "Could not find a project root containing package.json."
 	end
 
-	local invocation = resolve_jest(project_root)
+	local invocation = resolve_jest(project_context.root)
 	table.insert(invocation.args, "--runInBand")
 
 	if mode == "file" then
