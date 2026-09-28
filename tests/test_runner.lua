@@ -1,14 +1,7 @@
 local MiniTest = require("mini.test")
 local new_set = MiniTest.new_set
 local eq = MiniTest.expect.equality
-
-local function absolute_path(path)
-	local absolute = vim.fn.fnamemodify(path, ":p")
-	if absolute == "/" then
-		return absolute
-	end
-	return absolute:gsub("/+$", "")
-end
+local absolute_path = require("tests.test-utils").absolute_path
 
 local child = MiniTest.new_child_neovim()
 local T = new_set({

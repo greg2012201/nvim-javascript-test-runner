@@ -17,8 +17,8 @@ T["command execution"] = new_set()
 T["command execution"]["notifies with a message if invocation error is missing"] = function()
 	child.lua([[
 		local commands = require("javascript-test-runner.commands")
-		local utils = require("javascript-test-runner.utils")
-		utils.build_jest_invocation = function()
+		local api = require("javascript-test-runner.api")
+		api.build_jest_invocation = function()
 			return nil
 		end
 		vim.notify = function(message)
@@ -33,8 +33,8 @@ end
 T["command execution"]["starts the terminal through jobstart"] = function()
 	child.lua([[
 		local commands = require("javascript-test-runner.commands")
-		local utils = require("javascript-test-runner.utils")
-		utils.build_jest_invocation = function()
+		local api = require("javascript-test-runner.api")
+		api.build_jest_invocation = function()
 			return {
 				command = "node",
 				args = { "test.js" },

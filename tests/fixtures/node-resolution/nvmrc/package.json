@@ -1,0 +1,6 @@
+{
+  "name": "node-resolution-nvmrc",
+  "engines": {
+    "node": "18.19.1"
+  }
+}

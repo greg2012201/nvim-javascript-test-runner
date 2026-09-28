@@ -1,14 +1,7 @@
 local MiniTest = require("mini.test")
 local new_set = MiniTest.new_set
 local eq = MiniTest.expect.equality
-
-local function absolute_path(path)
-  local absolute = vim.fn.fnamemodify(path, ":p")
-  if absolute == "/" then
-    return absolute
-  end
-  return absolute:gsub("/+$", "")
-end
+local absolute_path = require("tests.test-utils").absolute_path
 
 local fixture_root = absolute_path("tests/fixtures/project-discovery")
 local root_boundary_path = absolute_path("/")
@@ -65,6 +58,17 @@ T["project discovery"]["resolves each file to its own project context"] = functi
       package_json = fixture_path("independent/beta/package.json"),
     },
   })
+end
+
+T["project discovery"]["resolves an environment from the detected project context"] = function()
+  local project = require("javascript-test-runner.project")
+  local context = detect(absolute_path("tests/fixtures/pnpm-vitest/package.json"))
+  local environment = project.resolve_environment(context)
+
+  eq(environment.package_manager, "npm")
+  eq(environment.framework, "vitest")
+  eq(environment.node_version, nil)
+  eq(environment.node, vim.fn.exepath("node") ~= "" and vim.fn.exepath("node") or "node")
 end
 
 return T

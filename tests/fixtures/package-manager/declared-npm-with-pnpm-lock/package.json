@@ -1,0 +1,5 @@
+{
+  "name": "declared-npm-with-pnpm-lock",
+  "private": true,
+  "packageManager": "npm@10.2.0"
+}

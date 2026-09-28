@@ -1,0 +1,6 @@
+{
+  "name": "node-resolution-node-version",
+  "engines": {
+    "node": "18.19.1"
+  }
+}

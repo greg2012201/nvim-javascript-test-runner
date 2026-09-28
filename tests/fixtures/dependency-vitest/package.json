@@ -1,0 +1,6 @@
+{
+  "name": "dependency-vitest",
+  "devDependencies": {
+    "vitest": "*"
+  }
+}

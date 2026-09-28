@@ -1,0 +1,10 @@
+{
+  "name": "mixed-project",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "jest": "*",
+    "vitest": "*"
+  }
+}

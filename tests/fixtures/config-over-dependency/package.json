@@ -1,0 +1,6 @@
+{
+  "name": "config-over-dependency",
+  "devDependencies": {
+    "vitest": "*"
+  }
+}
