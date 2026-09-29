@@ -56,7 +56,7 @@ function Module.run(mode)
 end
 
 function Module.has_test_on_current_line()
-	return require("javascript-test-runner.utils").has_test_on_current_line()
+	return require("javascript-test-runner.api").has_test_on_current_line()
 end
 
 function Module.get_config()

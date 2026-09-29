@@ -36,4 +36,17 @@ function Module.detect(path)
 	end
 end
 
+function Module.resolve_environment(context)
+	local node = require("javascript-test-runner.node").detect(context)
+	local package_manager = require("javascript-test-runner.package-manager").detect(context)
+	local framework = require("javascript-test-runner.framework").detect(context)
+
+	return {
+		node = node.node,
+		node_version = node.node_version,
+		package_manager = package_manager.name,
+		framework = framework,
+	}
+end
+
 return Module

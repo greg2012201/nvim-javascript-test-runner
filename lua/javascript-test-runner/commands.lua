@@ -1,8 +1,8 @@
 local Module = {}
 
 function Module.run_jest(mode)
-	local utils = require("javascript-test-runner.utils")
-	local invocation, err = utils.build_jest_invocation(mode)
+	local api = require("javascript-test-runner.api")
+	local invocation, err = api.build_jest_invocation(mode)
 
 	if not invocation then
 		vim.notify(err or "Could not build test invocation.", vim.log.levels.ERROR)
