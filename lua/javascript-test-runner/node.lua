@@ -106,9 +106,9 @@ local function system_node()
 	return node
 end
 
-local function append_candidate(candidates, base, relative_path)
-	if base and base ~= "" then
-		table.insert(candidates, base .. "/" .. relative_path)
+local function append_candidate(options)
+	if options.base and options.base ~= "" then
+		table.insert(options.candidates, options.base .. "/" .. options.relative_path)
 	end
 end
 
@@ -122,29 +122,33 @@ local function version_node_candidates(version, manager)
 	local candidates = {}
 	local home = vim.fn.expand("~")
 
-	append_candidate(
-		candidates,
-		vim.env.NVM_DIR or (home .. "/.nvm"),
-		"versions/node/" .. version_directory .. "/bin/node"
-	)
-	append_candidate(
-		candidates,
-		vim.env.FNM_DIR or (vim.env.XDG_DATA_HOME or (home .. "/.local/share")) .. "/fnm",
-		"node-versions/" .. version_directory .. "/installation/bin/node"
-	)
-	append_candidate(
-		candidates,
-		vim.env.ASDF_DATA_DIR or (home .. "/.asdf"),
-		"installs/nodejs/" .. plain_version .. "/bin/node"
-	)
-	append_candidate(
-		candidates,
-		vim.env.MISE_DATA_DIR or (home .. "/.local/share/mise"),
-		"installs/node/" .. plain_version .. "/bin/node"
-	)
+	append_candidate({
+		candidates = candidates,
+		base = vim.env.NVM_DIR or (home .. "/.nvm"),
+		relative_path = "versions/node/" .. version_directory .. "/bin/node",
+	})
+	append_candidate({
+		candidates = candidates,
+		base = vim.env.FNM_DIR or (vim.env.XDG_DATA_HOME or (home .. "/.local/share")) .. "/fnm",
+		relative_path = "node-versions/" .. version_directory .. "/installation/bin/node",
+	})
+	append_candidate({
+		candidates = candidates,
+		base = vim.env.ASDF_DATA_DIR or (home .. "/.asdf"),
+		relative_path = "installs/nodejs/" .. plain_version .. "/bin/node",
+	})
+	append_candidate({
+		candidates = candidates,
+		base = vim.env.MISE_DATA_DIR or (home .. "/.local/share/mise"),
+		relative_path = "installs/node/" .. plain_version .. "/bin/node",
+	})
 
 	if manager == "volta" then
-		append_candidate(candidates, vim.env.VOLTA_HOME or (home .. "/.volta"), "bin/node")
+		append_candidate({
+			candidates = candidates,
+			base = vim.env.VOLTA_HOME or (home .. "/.volta"),
+			relative_path = "bin/node",
+		})
 	end
 
 	return candidates
@@ -269,7 +273,11 @@ local function asdf_node(context, version)
 	}))
 end
 
-local function manager_node(context, version, manager)
+local function manager_node(options)
+	local context = options.context
+	local version = options.version
+	local manager = options.manager
+
 	if manager == "nvm" then
 		return nvm_node(context, version)
 	elseif manager == "fnm" then
@@ -292,15 +300,15 @@ local function manager_node(context, version, manager)
 		or asdf_node(context, version)
 end
 
-local function managed_node(context, version, manager)
-	for _, path in ipairs(version_node_candidates(version, manager)) do
+local function managed_node(options)
+	for _, path in ipairs(version_node_candidates(options.version, options.manager)) do
 		local node = executable_node(path)
 		if node then
 			return node
 		end
 	end
 
-	local node = manager_node(context, version, manager)
+	local node = manager_node(options)
 	if node then
 		return node
 	end
@@ -320,7 +328,11 @@ function Module.detect(context)
 	end
 
 	return {
-		node = managed_node(context, version, manager),
+		node = managed_node({
+			context = context,
+			version = version,
+			manager = manager,
+		}),
 		node_version = version,
 		source = source,
 	}
