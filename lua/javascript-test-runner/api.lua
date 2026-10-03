@@ -1,5 +1,8 @@
 local Module = {}
 local Project = require("javascript-test-runner.project")
+local Utils = require("javascript-test-runner.utils")
+
+local escape_test_name = Utils.escape_test_name
 
 local modes = {
 	file = true,
@@ -47,10 +50,6 @@ end
 
 local function get_current_line()
 	return vim.api.nvim_get_current_line()
-end
-
-local function escape_jest_pattern(value)
-	return value:gsub("([\\%^%$%.%[%]%(%)%*%+%-%?])", "\\%1")
 end
 
 local function get_node_command()
@@ -128,7 +127,7 @@ function Module.build_jest_invocation(mode)
 		table.insert(invocation.args, "--runTestsByPath")
 		table.insert(invocation.args, test_file)
 		table.insert(invocation.args, "-t")
-		local escaped_test_name = escape_jest_pattern(test_name)
+		local escaped_test_name = escape_test_name(test_name)
 		table.insert(invocation.args, escaped_test_name)
 	end
 

@@ -1,7 +1,7 @@
 local Module = {}
 local Utils = require("javascript-test-runner.utils")
 
-local read_json_file = Utils
+local read_json_file = Utils.read_json_file
 
 local configuration_files = {
 	jest = {

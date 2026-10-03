@@ -1,7 +1,7 @@
 local Module = {}
 local Utils = require("javascript-test-runner.utils")
 
-local read_json_file = Utils
+local read_json_file = Utils.read_json_file
 
 local function trim(value)
 	return value:match("^%s*(.-)%s*$")
@@ -171,7 +171,7 @@ local function run_manager(options)
 	local root = options.root
 	local env = options.env
 
-	if can_run_manager(options) then
+	if not can_run_manager(options) then
 		return nil
 	end
 
