@@ -115,4 +115,32 @@ function Module.build_invocation(options)
 	return invocation(options, root)
 end
 
+function Module.build_debug_configuration(options)
+	local built_invocation, invocation_error = Module.build_invocation(options)
+	if not built_invocation then
+		return nil, invocation_error
+	end
+
+	local environment = options.environment
+	local local_script = built_invocation.cwd .. "/node_modules/jest/bin/jest.js"
+	if built_invocation.command ~= environment.node or built_invocation.args[1] ~= local_script then
+		return nil, "Jest DAP requires a local Jest script and cannot use the npm or pnpm fallback"
+	end
+
+	local args = {}
+	for index = 2, #built_invocation.args do
+		table.insert(args, built_invocation.args[index])
+	end
+
+	return {
+		type = "pwa-node",
+		request = "launch",
+		runtimeExecutable = environment.node,
+		program = built_invocation.args[1],
+		args = args,
+		cwd = built_invocation.cwd,
+		env = environment.env or {},
+	}
+end
+
 return Module

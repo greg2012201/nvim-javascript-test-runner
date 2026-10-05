@@ -83,6 +83,10 @@ function Module.setup(opts)
 		end, { desc = "Test: Current Line" })
 	end
 
+	if config.dap then
+		require("javascript-test-runner.dap").setup()
+	end
+
 	configured = true
 	return Module
 end

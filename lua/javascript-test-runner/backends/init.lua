@@ -23,4 +23,27 @@ function Module.build_invocation(options)
 	return require(backend_name).build_invocation(options)
 end
 
+function Module.build_debug_configuration(options)
+	if type(options) ~= "table" then
+		return nil, "Backend debug configuration options must be a table"
+	end
+
+	local environment = options.environment
+	if type(environment) ~= "table" then
+		return nil, "Backend debug configuration requires a resolved environment"
+	end
+
+	local backend_name = supported_backends[environment.framework]
+	if not backend_name then
+		return nil, "Unsupported test framework: " .. tostring(environment.framework)
+	end
+
+	local backend = require(backend_name)
+	if type(backend.build_debug_configuration) ~= "function" then
+		return nil, "Backend does not support debug configurations: " .. tostring(environment.framework)
+	end
+
+	return backend.build_debug_configuration(options)
+end
+
 return Module

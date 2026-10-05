@@ -97,4 +97,33 @@ function Module.build_invocation(options)
 	}
 end
 
+function Module.build_debug_configuration(options)
+	local invocation, error_message = Module.build_invocation(options)
+	if not invocation then
+		return nil, error_message
+	end
+
+	local environment = options.environment or {}
+	local local_script = invocation.cwd == "/" and "/node_modules/vitest/vitest.mjs"
+		or invocation.cwd .. "/node_modules/vitest/vitest.mjs"
+	if invocation.command ~= environment.node or invocation.args[1] ~= local_script then
+		return nil, "Vitest DAP requires Node to launch a local Vitest script"
+	end
+
+	local args = {}
+	for index = 2, #invocation.args do
+		args[#args + 1] = invocation.args[index]
+	end
+
+	return {
+		type = "pwa-node",
+		request = "launch",
+		runtimeExecutable = environment.node,
+		program = local_script,
+		args = args,
+		cwd = invocation.cwd,
+		env = environment.env or {},
+	}
+end
+
 return Module
