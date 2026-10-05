@@ -14,45 +14,20 @@ local T = new_set({
 
 T["command execution"] = new_set()
 
-T["command execution"]["notifies with a message if invocation error is missing"] = function()
+T["command execution"]["delegates run options to the generic runner and preserves its result"] = function()
 	child.lua([[
 		local commands = require("javascript-test-runner.commands")
-		local api = require("javascript-test-runner.api")
-		api.build_jest_invocation = function()
-			return nil
-		end
-		vim.notify = function(message)
-			_G.notification = message
-		end
-		commands.run_jest("file")
+	package.loaded["javascript-test-runner.runner"] = {
+		run = function(options)
+			_G.runner_options = options
+			return "runner result"
+		end,
+	}
+	_G.command_result = commands.run("project")
 	]])
 
-	eq(child.lua_get([[_G.notification]]), "Could not build test invocation.")
-end
-
-T["command execution"]["starts the terminal through jobstart"] = function()
-	child.lua([[
-		local commands = require("javascript-test-runner.commands")
-		local api = require("javascript-test-runner.api")
-		api.build_jest_invocation = function()
-			return {
-				command = "node",
-				args = { "test.js" },
-				cwd = vim.fn.getcwd(),
-			}
-		end
-		vim.fn.jobstart = function(command, options)
-			_G.started_command = command
-			_G.started_options = options
-			return 1
-		end
-		vim.cmd = function() end
-		commands.run_jest("file")
-	]])
-
-	eq(child.lua_get([[_G.started_command]]), { "node", "test.js" })
-	eq(child.lua_get([[_G.started_options.term]]), true)
-	eq(child.lua_get([[_G.started_options.cwd]]), child.lua_get([[vim.fn.getcwd()]]))
+	eq(child.lua_get([[_G.runner_options]]), "project")
+	eq(child.lua_get([[_G.command_result]]), "runner result")
 end
 
 return T

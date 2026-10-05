@@ -15,9 +15,13 @@ local T = new_set({
 
 local function capture_invocation()
 	child.lua([[
-		vim.fn.jobstart = function(_, options)
-			vim.g.test_invocation_cwd = options.cwd
-			vim.g.test_invocation_term = options.term
+		vim.fn.jobstart = function(command, options)
+			vim.g.test_invocation = {
+				argv = command,
+				cwd = options.cwd,
+				env = options.env,
+				term = options.term,
+			}
 			return 1
 		end
 	]])
@@ -34,10 +38,10 @@ T["running tests"]["runs a test file from its nearest project directory"] = func
 	child.cmd("Test file")
 
 	eq(
-		child.lua_get([[vim.g.test_invocation_cwd]]),
+		child.lua_get([[vim.g.test_invocation.cwd]]),
 		absolute_path("tests/fixtures/project-discovery/monorepo/packages/widget")
 	)
-	eq(child.lua_get([[vim.g.test_invocation_term]]), true)
+	eq(child.lua_get([[vim.g.test_invocation.term]]), true)
 end
 
 T["running tests"]["uses the working directory for an unnamed project run"] = function()
@@ -50,10 +54,24 @@ T["running tests"]["uses the working directory for an unnamed project run"] = fu
 	child.cmd("Test project")
 
 	eq(
-		child.lua_get([[vim.g.test_invocation_cwd]]),
+		child.lua_get([[vim.g.test_invocation.cwd]]),
 		absolute_path("tests/fixtures/project-discovery/independent/alpha")
 	)
-	eq(child.lua_get([[vim.g.test_invocation_term]]), true)
+	eq(child.lua_get([[vim.g.test_invocation.term]]), true)
+end
+
+T["running tests"]["runs a Vitest project through the public command"] = function()
+	child.lua([[
+		require("javascript-test-runner").setup()
+		vim.cmd.edit("tests/fixtures/pnpm-vitest/vitest.config.js")
+	]])
+	capture_invocation()
+	child.cmd("Test project")
+
+	eq(child.lua_get([[vim.g.test_invocation.argv]]), { "npm", "exec", "--", "vitest", "run" })
+	eq(child.lua_get([[vim.g.test_invocation.cwd]]), absolute_path("tests/fixtures/pnpm-vitest"))
+	eq(child.lua_get([[vim.g.test_invocation.env]]), {})
+	eq(child.lua_get([[vim.g.test_invocation.term]]), true)
 end
 
 return T

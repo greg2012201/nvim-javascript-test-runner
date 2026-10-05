@@ -37,7 +37,7 @@ local function merge(base, overrides)
 end
 
 local function run(mode)
-	return require("javascript-test-runner.commands").run_jest(mode)
+	return require("javascript-test-runner.commands").run(mode)
 end
 
 local function register_command(command_name)
