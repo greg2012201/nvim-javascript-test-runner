@@ -88,22 +88,34 @@ function Module.run(options)
 		return notify_error(argv_error)
 	end
 
-	vim.cmd("vsplit")
+	if type(invocation.env) ~= "table" then
+		return notify_error("Test invocation does not contain an environment map.")
+	end
+
+	local terminal_options = {
+		cwd = invocation.cwd,
+		term = true,
+	}
+	if next(invocation.env) ~= nil then
+		terminal_options.env = invocation.env
+	end
+
+	vim.cmd("vnew")
 
 	local terminal_buffer = vim.api.nvim_get_current_buf()
-	vim.bo[terminal_buffer].bufhidden = "wipe"
-	vim.bo[terminal_buffer].buflisted = false
+	vim.bo[terminal_buffer].bufhidden = "hide"
+	vim.bo[terminal_buffer].buflisted = true
 
-	local job_id = vim.fn.jobstart(argv, {
-		cwd = invocation.cwd,
-		env = invocation.env,
-		term = true,
-	})
+	local ok, job_id = pcall(vim.fn.jobstart, argv, terminal_options)
+	if not ok then
+		vim.cmd("close")
+		return notify_error("Could not start test process: " .. tostring(job_id))
+	end
 	if type(job_id) ~= "number" or job_id <= 0 then
+		vim.cmd("close")
 		return notify_error("Could not start test process.")
 	end
 
-	vim.cmd("startinsert")
 	return true
 end
 

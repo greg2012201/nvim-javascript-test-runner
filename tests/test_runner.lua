@@ -19,8 +19,10 @@ local function capture_invocation()
 			vim.g.test_invocation = {
 				argv = command,
 				cwd = options.cwd,
-				env = options.env,
+				env = options.env or {},
+				env_is_dict = options.env == nil or not vim.islist(options.env),
 				term = options.term,
+				terminal_buffer = vim.api.nvim_get_current_buf(),
 			}
 			return 1
 		end
@@ -33,6 +35,7 @@ T["running tests"]["runs a test file from its nearest project directory"] = func
 	child.lua([[
 		require("javascript-test-runner").setup()
 		vim.cmd.edit("tests/fixtures/project-discovery/monorepo/packages/widget/src/nested/feature.test.js")
+		_G.source_buffer = vim.api.nvim_get_current_buf()
 	]])
 	capture_invocation()
 	child.cmd("Test file")
@@ -41,7 +44,14 @@ T["running tests"]["runs a test file from its nearest project directory"] = func
 		child.lua_get([[vim.g.test_invocation.cwd]]),
 		absolute_path("tests/fixtures/project-discovery/monorepo/packages/widget")
 	)
+	eq(child.lua_get([[vim.g.test_invocation.env_is_dict]]), true)
 	eq(child.lua_get([[vim.g.test_invocation.term]]), true)
+	eq(child.lua_get([[vim.g.test_invocation.terminal_buffer ~= _G.source_buffer]]), true)
+	eq(child.lua_get([[vim.bo[vim.g.test_invocation.terminal_buffer].bufhidden]]), "hide")
+	eq(child.lua_get([[vim.bo[vim.g.test_invocation.terminal_buffer].buflisted]]), true)
+
+	child.lua([[vim.api.nvim_set_current_buf(_G.source_buffer)]])
+	eq(child.lua_get([[vim.api.nvim_buf_is_valid(vim.g.test_invocation.terminal_buffer)]]), true)
 end
 
 T["running tests"]["uses the working directory for an unnamed project run"] = function()
@@ -57,6 +67,7 @@ T["running tests"]["uses the working directory for an unnamed project run"] = fu
 		child.lua_get([[vim.g.test_invocation.cwd]]),
 		absolute_path("tests/fixtures/project-discovery/independent/alpha")
 	)
+	eq(child.lua_get([[vim.g.test_invocation.env_is_dict]]), true)
 	eq(child.lua_get([[vim.g.test_invocation.term]]), true)
 end
 
@@ -71,6 +82,7 @@ T["running tests"]["runs a Vitest project through the public command"] = functio
 	eq(child.lua_get([[vim.g.test_invocation.argv]]), { "npm", "exec", "--", "vitest", "run" })
 	eq(child.lua_get([[vim.g.test_invocation.cwd]]), absolute_path("tests/fixtures/pnpm-vitest"))
 	eq(child.lua_get([[vim.g.test_invocation.env]]), {})
+	eq(child.lua_get([[vim.g.test_invocation.env_is_dict]]), true)
 	eq(child.lua_get([[vim.g.test_invocation.term]]), true)
 end
 
