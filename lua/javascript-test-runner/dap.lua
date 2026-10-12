@@ -58,9 +58,14 @@ local function build_options(mode)
 		return nil, "Could not find a project root containing package.json."
 	end
 
+	local environment, environment_error = project.resolve_environment(context)
+	if not environment then
+		return nil, environment_error
+	end
+
 	local options = {
 		context = context,
-		environment = project.resolve_environment(context),
+		environment = environment,
 		mode = mode,
 	}
 

@@ -86,7 +86,7 @@ local function invocation(options, root)
 		command = command,
 		args = target_args,
 		cwd = root,
-		env = {},
+		env = environment.env or {},
 	}
 end
 

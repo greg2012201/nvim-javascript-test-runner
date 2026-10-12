@@ -93,7 +93,7 @@ function Module.build_invocation(options)
 		command = command,
 		args = target_args,
 		cwd = root,
-		env = {},
+		env = environment.env or {},
 	}
 end
 

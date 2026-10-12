@@ -33,7 +33,11 @@ local function build_invocation(mode, options)
 		return nil, "Could not find a project root containing package.json."
 	end
 
-	local environment = project.resolve_environment(context)
+	local environment, environment_error = project.resolve_environment(context)
+	if not environment then
+		return nil, environment_error
+	end
+
 	local invocation_options = {
 		context = context,
 		environment = environment,

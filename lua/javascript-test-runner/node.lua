@@ -112,7 +112,11 @@ local function append_candidate(options)
 	end
 end
 
-local function version_node_candidates(version, manager)
+local function version_node_candidates(options)
+	local version = options.version
+	local manager = options.manager
+	local version_override = options.version_override
+
 	if not version:match("^[%w._+-]+$") then
 		return {}
 	end
@@ -143,7 +147,7 @@ local function version_node_candidates(version, manager)
 		relative_path = "installs/node/" .. plain_version .. "/bin/node",
 	})
 
-	if manager == "volta" then
+	if manager == "volta" and not version_override then
 		append_candidate({
 			candidates = candidates,
 			base = vim.env.VOLTA_HOME or (home .. "/.volta"),
@@ -273,35 +277,77 @@ local function asdf_node(context, version)
 	}))
 end
 
+local function volta_node(context, version)
+	return executable_from_result(run_manager({
+		command = "volta",
+		args = { "run", "--node", version, "--", "node", "-p", "process.execPath" },
+		root = context.root,
+	}))
+end
+
 local function manager_node(options)
 	local context = options.context
 	local version = options.version
 	local manager = options.manager
+	local version_override = options.version_override
 
 	if manager == "nvm" then
-		return nvm_node(context, version)
+		local node = nvm_node(context, version)
+		if node or not version_override then
+			return node
+		end
 	elseif manager == "fnm" then
-		return fnm_node(context, version)
+		local node = fnm_node(context, version)
+		if node or not version_override then
+			return node
+		end
 	elseif manager == "mise" then
-		return mise_node(context, version)
+		local node = mise_node(context, version)
+		if node or not version_override then
+			return node
+		end
 	elseif manager == "asdf" then
-		return asdf_node(context, version) or mise_node(context, version)
+		local node = asdf_node(context, version) or mise_node(context, version)
+		if node or not version_override then
+			return node
+		end
 	elseif manager == "volta" then
-		return executable_from_result(run_manager({
-			command = "volta",
-			args = { "which", "node" },
-			root = context.root,
-		}))
+		if version_override then
+			local node = volta_node(context, version)
+			if node then
+				return node
+			end
+		else
+			return executable_from_result(run_manager({
+				command = "volta",
+				args = { "which", "node" },
+				root = context.root,
+			}))
+		end
 	end
 
-	return nvm_node(context, version)
+	local node = nvm_node(context, version)
 		or fnm_node(context, version)
 		or mise_node(context, version)
 		or asdf_node(context, version)
+
+	if node then
+		return node
+	end
+
+	if version_override then
+		return volta_node(context, version)
+	end
+
+	return nil
 end
 
 local function managed_node(options)
-	for _, path in ipairs(version_node_candidates(options.version, options.manager)) do
+	for _, path in ipairs(version_node_candidates({
+		version = options.version,
+		manager = options.manager,
+		version_override = options.version_override,
+	})) do
 		local node = executable_node(path)
 		if node then
 			return node
@@ -313,12 +359,22 @@ local function managed_node(options)
 		return node
 	end
 
+	if options.version_override then
+		return nil
+	end
+
 	return system_node()
 end
 
-function Module.detect(context)
+function Module.detect(context, version_override)
 	local package_json = read_json_file(context.package_json)
 	local version, source, manager = configured_version(context, package_json)
+	local has_version_override = type(version_override) == "string" and version_override ~= ""
+	if has_version_override then
+		version = version_override
+		source = "project override"
+	end
+
 	if not version then
 		return {
 			node = system_node(),
@@ -327,12 +383,18 @@ function Module.detect(context)
 		}
 	end
 
+	local node = managed_node({
+		context = context,
+		version = version,
+		manager = manager,
+		version_override = has_version_override,
+	})
+	if not node then
+		return nil, "Could not resolve Node.js version override '" .. version .. "' to an executable."
+	end
+
 	return {
-		node = managed_node({
-			context = context,
-			version = version,
-			manager = manager,
-		}),
+		node = node,
 		node_version = version,
 		source = source,
 	}
