@@ -58,14 +58,8 @@ local function build_options(mode)
 		return nil, "Could not find a project root containing package.json."
 	end
 
-	local environment, environment_error = project.resolve_environment(context)
-	if not environment then
-		return nil, environment_error
-	end
-
 	local options = {
 		context = context,
-		environment = environment,
 		mode = mode,
 	}
 
@@ -74,6 +68,12 @@ local function build_options(mode)
 	elseif mode == "folder" then
 		options.folder = folder
 	end
+
+	local environment, environment_error = project.resolve_environment(context, options)
+	if not environment then
+		return nil, environment_error
+	end
+	options.environment = environment
 
 	if mode == "line" then
 		local line_number = vim.api.nvim_win_get_cursor(0)[1]

@@ -82,7 +82,89 @@ local function matching_override(root, overrides)
 	return nil
 end
 
-function Module.resolve_environment(context)
+local vm_modules_option = "--experimental-vm-modules"
+
+local function is_vm_modules_option(option)
+	return option == vm_modules_option
+		or option == "'" .. vm_modules_option .. "'"
+		or option == '"' .. vm_modules_option .. '"'
+end
+
+local function remove_vm_modules_options(options)
+	local parts = {}
+	local position = 1
+
+	while position <= #options do
+		local first, last = options:find("%S+", position)
+		if not first then
+			parts[#parts + 1] = options:sub(position)
+			break
+		end
+
+		parts[#parts + 1] = options:sub(position, first - 1)
+		local option = options:sub(first, last)
+		if not is_vm_modules_option(option) then
+			parts[#parts + 1] = option
+		end
+		position = last + 1
+	end
+
+	return table.concat(parts)
+end
+
+local function merge_node_options(configured, inherited)
+	if type(configured) ~= "string" then
+		configured = ""
+	end
+	if type(inherited) ~= "string" then
+		inherited = ""
+	end
+	if configured == "" then
+		return inherited
+	end
+	if inherited == "" then
+		return configured
+	end
+	return configured .. " " .. inherited
+end
+
+local function resolve_env(params)
+	local context = params.context
+	local framework = params.framework
+	local configured_env = params.configured_env
+	local scope = params.scope
+
+	local env = {}
+	for name, value in pairs(configured_env or {}) do
+		env[name] = value
+	end
+
+	if framework ~= "jest" then
+		return env
+	end
+
+	local needs_vm_modules = require("javascript-test-runner.esm").needs_vm_modules({
+		context = context,
+		mode = scope.mode,
+		file = scope.file,
+		folder = scope.folder,
+	})
+
+	if not needs_vm_modules then
+		return env
+	end
+
+	local node_options = merge_node_options(env.NODE_OPTIONS, vim.env.NODE_OPTIONS)
+	node_options = remove_vm_modules_options(node_options)
+	if node_options:match("%S") and not node_options:match("%s$") then
+		node_options = node_options .. " "
+	end
+	env.NODE_OPTIONS = node_options .. vm_modules_option
+
+	return env
+end
+
+function Module.resolve_environment(context, scope)
 	local config = Plugin.get_config()
 	local root = workspace_root(context.root)
 	local override = matching_override(root, config.project_overrides)
@@ -109,12 +191,22 @@ function Module.resolve_environment(context)
 		framework = override.framework
 	end
 
+	scope = scope or {}
 	return {
 		node = node.node,
 		node_version = node.node_version,
 		package_manager = package_manager,
 		framework = framework,
-		env = override and override.env or {},
+		env = resolve_env({
+			context = context,
+			framework = framework,
+			configured_env = override and override.env,
+			scope = {
+				mode = scope.mode or "project",
+				file = scope.file,
+				folder = scope.folder,
+			},
+		}),
 	}
 end
 

@@ -33,14 +33,8 @@ local function build_invocation(mode, options)
 		return nil, "Could not find a project root containing package.json."
 	end
 
-	local environment, environment_error = project.resolve_environment(context)
-	if not environment then
-		return nil, environment_error
-	end
-
 	local invocation_options = {
 		context = context,
-		environment = environment,
 		mode = mode,
 	}
 
@@ -49,6 +43,12 @@ local function build_invocation(mode, options)
 	elseif mode == "folder" then
 		invocation_options.folder = file and vim.fn.fnamemodify(file, ":h") or vim.fn.getcwd()
 	end
+
+	local environment, environment_error = project.resolve_environment(context, invocation_options)
+	if not environment then
+		return nil, environment_error
+	end
+	invocation_options.environment = environment
 
 	if mode == "line" then
 		invocation_options.test_name = api.get_current_test_name_in_line(vim.api.nvim_get_current_line())
