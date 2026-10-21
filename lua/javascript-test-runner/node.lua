@@ -60,36 +60,59 @@ local function read_mise_version(path)
 end
 
 local function configured_version(context, package_json)
-	local root = context.root
-	local version = read_version_file(root .. "/.nvmrc")
-	if version then
-		return version, ".nvmrc", "nvm"
+	local directories = {}
+	local directory = context.root
+	while true do
+		directories[#directories + 1] = directory
+		local parent = vim.fn.fnamemodify(directory, ":h")
+		if parent == directory then
+			break
+		end
+		directory = parent
 	end
 
-	version = read_version_file(root .. "/.node-version")
-	if version then
-		return version, ".node-version", "fnm"
+	local version
+	for _, directory_path in ipairs(directories) do
+		version = read_version_file(directory_path .. "/.nvmrc")
+		if version then
+			return version, ".nvmrc", "nvm"
+		end
 	end
 
-	version = read_tool_versions(root .. "/.tool-versions")
-	if version then
-		return version, ".tool-versions", "asdf"
+	for _, directory_path in ipairs(directories) do
+		version = read_version_file(directory_path .. "/.node-version")
+		if version then
+			return version, ".node-version", "fnm"
+		end
+	end
+
+	for _, directory_path in ipairs(directories) do
+		version = read_tool_versions(directory_path .. "/.tool-versions")
+		if version then
+			return version, ".tool-versions", "asdf"
+		end
 	end
 
 	for _, file in ipairs({ ".mise.toml", "mise.toml", ".config/mise/config.toml" }) do
-		version = read_mise_version(root .. "/" .. file)
-		if version then
-			return version, file, "mise"
+		for _, directory_path in ipairs(directories) do
+			version = read_mise_version(directory_path .. "/" .. file)
+			if version then
+				return version, file, "mise"
+			end
 		end
 	end
 
-	if type(package_json) == "table" then
-		local volta = package_json.volta
+	for index, directory_path in ipairs(directories) do
+		local current_package_json = index == 1 and package_json or read_json_file(directory_path .. "/package.json")
+		local volta = type(current_package_json) == "table" and current_package_json.volta
 		if type(volta) == "table" and type(volta.node) == "string" and volta.node ~= "" then
 			return volta.node, "package.json", "volta"
 		end
+	end
 
-		local engines = package_json.engines
+	for index, directory_path in ipairs(directories) do
+		local current_package_json = index == 1 and package_json or read_json_file(directory_path .. "/package.json")
+		local engines = type(current_package_json) == "table" and current_package_json.engines
 		if type(engines) == "table" and type(engines.node) == "string" and engines.node ~= "" then
 			return engines.node, "package.json", nil
 		end
@@ -290,49 +313,39 @@ local function manager_node(options)
 	local version = options.version
 	local manager = options.manager
 	local version_override = options.version_override
+	local manager_resolvers = {
+		nvm = nvm_node,
+		fnm = fnm_node,
+		mise = mise_node,
+		asdf = asdf_node,
+	}
 
-	if manager == "nvm" then
-		local node = nvm_node(context, version)
-		if node or not version_override then
+	if manager == "volta" and not version_override then
+		local node = executable_from_result(run_manager({
+			command = "volta",
+			args = { "which", "node" },
+			root = context.root,
+		}))
+		if node then
 			return node
-		end
-	elseif manager == "fnm" then
-		local node = fnm_node(context, version)
-		if node or not version_override then
-			return node
-		end
-	elseif manager == "mise" then
-		local node = mise_node(context, version)
-		if node or not version_override then
-			return node
-		end
-	elseif manager == "asdf" then
-		local node = asdf_node(context, version) or mise_node(context, version)
-		if node or not version_override then
-			return node
-		end
-	elseif manager == "volta" then
-		if version_override then
-			local node = volta_node(context, version)
-			if node then
-				return node
-			end
-		else
-			return executable_from_result(run_manager({
-				command = "volta",
-				args = { "which", "node" },
-				root = context.root,
-			}))
 		end
 	end
 
-	local node = nvm_node(context, version)
-		or fnm_node(context, version)
-		or mise_node(context, version)
-		or asdf_node(context, version)
+	local resolvers = {}
+	if manager_resolvers[manager] then
+		resolvers[#resolvers + 1] = manager_resolvers[manager]
+	end
+	for _, resolver_name in ipairs({ "nvm", "fnm", "mise", "asdf" }) do
+		if resolver_name ~= manager then
+			resolvers[#resolvers + 1] = manager_resolvers[resolver_name]
+		end
+	end
 
-	if node then
-		return node
+	for _, resolver in ipairs(resolvers) do
+		local node = resolver(context, version)
+		if node then
+			return node
+		end
 	end
 
 	if version_override then

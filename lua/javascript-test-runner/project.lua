@@ -195,6 +195,7 @@ function Module.resolve_environment(context, scope)
 	return {
 		node = node.node,
 		node_version = node.node_version,
+		node_source = node.source,
 		package_manager = package_manager,
 		framework = framework,
 		env = resolve_env({

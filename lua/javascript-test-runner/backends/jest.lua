@@ -52,6 +52,7 @@ local function invocation(options, root)
 	local local_script = root .. "/node_modules/jest/bin/jest.js"
 	local args
 	local command
+	local env = environment.env or {}
 
 	if vim.fn.filereadable(local_script) == 1 then
 		if type(environment.node) ~= "string" or environment.node == "" then
@@ -71,6 +72,9 @@ local function invocation(options, root)
 		else
 			args = { "exec", "jest", "--runInBand" }
 		end
+		if type(env) == "table" then
+			env = Utils.environment_with_node_path(environment)
+		end
 	end
 
 	local target_args, target_error = add_target_arguments({
@@ -86,7 +90,7 @@ local function invocation(options, root)
 		command = command,
 		args = target_args,
 		cwd = root,
-		env = environment.env or {},
+		env = env,
 	}
 end
 

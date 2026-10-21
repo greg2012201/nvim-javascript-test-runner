@@ -155,6 +155,7 @@ T["Jest backend invocation"]["uses npm exec with Jest when no local installation
 	local context = create_project()
 	local file = create_target(context, "src/example.test.js")
 	local options = options_for(context, "file", "npm")
+	options.environment.env = { PATH = "/existing/bin" }
 	options.file = file
 
 	eq(build_invocation(options), {
@@ -168,13 +169,16 @@ T["Jest backend invocation"]["uses npm exec with Jest when no local installation
 			file,
 		},
 		cwd = context.root,
-		env = {},
+		env = {
+			PATH = "/opt/node/bin" .. package.config:sub(3, 3) .. "/existing/bin",
+		},
 	})
 end
 
 T["Jest backend invocation"]["uses pnpm exec with Jest when no local installation exists"] = function()
 	local context = create_project()
 	local options = options_for(context, "project", "pnpm")
+	options.environment.env = { PATH = "/existing/bin" }
 
 	eq(build_invocation(options), {
 		command = "pnpm",
@@ -184,7 +188,9 @@ T["Jest backend invocation"]["uses pnpm exec with Jest when no local installatio
 			"--runInBand",
 		},
 		cwd = context.root,
-		env = {},
+		env = {
+			PATH = "/opt/node/bin" .. package.config:sub(3, 3) .. "/existing/bin",
+		},
 	})
 end
 

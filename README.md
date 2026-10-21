@@ -86,8 +86,8 @@ The line mode recognizes calls such as `test("name")`, `it("name")`, and
 `describe("name")`.
 
 The plugin searches upward from the current buffer for the nearest
-`package.json`. It runs the project's local Jest installation when available
-and falls back to `npx jest` otherwise.
+`package.json`, detects Jest or Vitest, and selects npm or pnpm for fallback
+execution when a local test runner is unavailable.
 
 ## Configuration
 
@@ -113,11 +113,46 @@ The command name and default keymaps can be changed:
 
 Set either keymap to `false` to disable it.
 
+Automatic project detection is used unless you configure project-specific
+overrides. Override keys are project roots; in a monorepo, the workspace root
+is used when it has a `workspaces` field or a `pnpm-workspace.yaml` file.
+
+```lua
+require("javascript-test-runner").setup({
+  project_overrides = {
+    ["/path/to/monorepo"] = {
+      node_version = "22",
+      package_manager = "pnpm",
+      framework = "jest",
+      env = {
+        NODE_OPTIONS = "--experimental-vm-modules",
+      },
+    },
+  },
+})
+```
+
+`package_manager` accepts `npm` or `pnpm`, and `framework` accepts `jest` or
+`vitest`. `node_version` selects a version understood by an installed `nvm`,
+`fnm`, `mise`, `asdf`, or Volta manager; if an explicit version cannot be
+resolved, the runner reports an error rather than silently using system Node.
+Values in `env` are passed only to the test process and do not change Neovim's
+environment. Without a workspace marker, overrides use the nearest
+`package.json` project root.
+
+For Jest, ESM is detected from a package's `"type": "module"` or test files
+with `.mjs`/`.mts` extensions in the selected scope. Folder and project runs
+also check nested package scopes. The runner adds `--experimental-vm-modules`
+to the Jest process's `NODE_OPTIONS` when needed, preserving inherited and
+configured options. This enables Jest's ESM runtime; it does not configure
+transforms or other Jest settings required by some TypeScript, JSX, or
+mixed-module projects. Vitest does not receive this Jest-specific option.
+
 ## Current scope
 
-The plugin currently provides a Jest-backed terminal runner for file, folder,
-project, and current-line test execution. The backend is intentionally kept
-separate so additional JavaScript test frameworks can be added later.
+The plugin provides Jest and Vitest terminal runners for file, folder, project,
+and current-line test execution. The backends are kept separate so additional
+JavaScript test frameworks can be added later.
 
 ## Testing
 

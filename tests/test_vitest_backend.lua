@@ -34,7 +34,7 @@ local function expect_invocation(options)
 	eq(options.invocation.command, options.command)
 	eq(options.invocation.args, options.args)
 	eq(options.invocation.cwd, root)
-	eq(options.invocation.env, {})
+	eq(options.invocation.env, options.env or {})
 end
 
 local function expect_error(options)
@@ -60,6 +60,11 @@ T["Vitest invocation"]["runs a file through the npm fallback with an absolute pa
 	local invocation = build_invocation({
 		mode = "file",
 		file = "src/example.test.js",
+		environment = {
+			node = "/test/node",
+			package_manager = "npm",
+			env = { PATH = "/existing/bin" },
+		},
 	})
 
 	expect_invocation({
@@ -71,6 +76,9 @@ T["Vitest invocation"]["runs a file through the npm fallback with an absolute pa
 			"vitest",
 			"run",
 			root .. "/src/example.test.js",
+		},
+		env = {
+			PATH = "/test" .. package.config:sub(3, 3) .. "/existing/bin",
 		},
 	})
 end
@@ -84,6 +92,7 @@ T["Vitest invocation"]["runs a folder through the pnpm fallback"] = function()
 		environment = {
 			node = "/test/node",
 			package_manager = "pnpm",
+			env = { PATH = "/existing/bin" },
 		},
 	})
 
@@ -95,6 +104,9 @@ T["Vitest invocation"]["runs a folder through the pnpm fallback"] = function()
 			"vitest",
 			"run",
 			root .. "/src/components",
+		},
+		env = {
+			PATH = "/test" .. package.config:sub(3, 3) .. "/existing/bin",
 		},
 	})
 end

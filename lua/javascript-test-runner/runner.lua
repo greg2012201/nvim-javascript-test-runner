@@ -21,6 +21,30 @@ local function get_current_file()
 	return vim.fn.fnamemodify(buffer_name, ":p")
 end
 
+local function activate_nvm(invocation)
+	local nvm_dir = vim.env.NVM_DIR
+	if type(nvm_dir) ~= "string" or nvm_dir == "" then
+		nvm_dir = vim.fn.expand("~") .. "/.nvm"
+	end
+	if vim.fn.filereadable(nvm_dir .. "/nvm.sh") ~= 1 or vim.fn.executable("bash") ~= 1 then
+		return invocation
+	end
+
+	local args = {
+		"--noprofile",
+		"--norc",
+		"-c",
+		'export NVM_DIR="$1"; source "$NVM_DIR/nvm.sh" >/dev/null && nvm use >/dev/null && shift && exec "$@"',
+		"javascript-test-runner",
+		nvm_dir,
+		invocation.command,
+	}
+	vim.list_extend(args, invocation.args)
+	invocation.command = "bash"
+	invocation.args = args
+	return invocation
+end
+
 local function build_invocation(mode, options)
 	local project = require("javascript-test-runner.project")
 	local api = require("javascript-test-runner.api")
@@ -54,7 +78,16 @@ local function build_invocation(mode, options)
 		invocation_options.test_name = api.get_current_test_name_in_line(vim.api.nvim_get_current_line())
 	end
 
-	return backends.build_invocation(invocation_options)
+	local invocation, invocation_error = backends.build_invocation(invocation_options)
+	if not invocation then
+		return nil, invocation_error
+	end
+
+	if environment.node_source == ".nvmrc" then
+		return activate_nvm(invocation)
+	end
+
+	return invocation
 end
 
 local function make_argv(invocation)

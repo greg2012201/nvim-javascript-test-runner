@@ -57,6 +57,7 @@ function Module.build_invocation(options)
 	local local_script = root == "/" and "/node_modules/vitest/vitest.mjs" or root .. "/node_modules/vitest/vitest.mjs"
 	local command
 	local args = {}
+	local env = environment.env or {}
 
 	if vim.fn.filereadable(local_script) == 1 then
 		if type(environment.node) ~= "string" or environment.node == "" then
@@ -74,6 +75,9 @@ function Module.build_invocation(options)
 			args[#args + 1] = "--"
 		end
 		args[#args + 1] = "vitest"
+		if type(env) == "table" then
+			env = Utils.environment_with_node_path(environment)
+		end
 	end
 
 	args[#args + 1] = "run"
@@ -93,7 +97,7 @@ function Module.build_invocation(options)
 		command = command,
 		args = target_args,
 		cwd = root,
-		env = environment.env or {},
+		env = env,
 	}
 end
 
