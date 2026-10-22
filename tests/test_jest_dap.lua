@@ -76,6 +76,7 @@ T["Jest DAP configuration"]["builds a file launch configuration using local Jest
 	eq(build_debug_configuration(options), {
 		type = "pwa-node",
 		request = "launch",
+		console = "integratedTerminal",
 		runtimeExecutable = "/opt/node/bin/node",
 		program = script,
 		cwd = context.root,
@@ -99,6 +100,7 @@ T["Jest DAP configuration"]["finds Jest hoisted to a workspace root"] = function
 	eq(build_debug_configuration(options), {
 		type = "pwa-node",
 		request = "launch",
+		console = "integratedTerminal",
 		runtimeExecutable = "/opt/node/bin/node",
 		program = script,
 		cwd = context.root,
@@ -123,6 +125,7 @@ T["Jest DAP configuration"]["builds a folder launch configuration with an absolu
 	eq(build_debug_configuration(options), {
 		type = "pwa-node",
 		request = "launch",
+		console = "integratedTerminal",
 		runtimeExecutable = "/opt/node/bin/node",
 		program = script,
 		cwd = context.root,
@@ -145,6 +148,7 @@ T["Jest DAP configuration"]["builds a line launch configuration with an escaped 
 	eq(build_debug_configuration(options), {
 		type = "pwa-node",
 		request = "launch",
+		console = "integratedTerminal",
 		runtimeExecutable = "/opt/node/bin/node",
 		program = script,
 		cwd = context.root,

@@ -142,6 +142,7 @@ function Module.build_debug_configuration(options)
 	return {
 		type = "pwa-node",
 		request = "launch",
+		console = "integratedTerminal",
 		runtimeExecutable = environment.node,
 		program = local_script,
 		args = args,

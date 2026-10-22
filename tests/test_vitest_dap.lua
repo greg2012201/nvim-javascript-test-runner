@@ -55,6 +55,7 @@ local function expected_configuration(options)
 	return {
 		type = "pwa-node",
 		request = "launch",
+		console = "integratedTerminal",
 		runtimeExecutable = "/opt/node/bin/node",
 		program = options.script,
 		args = options.args,

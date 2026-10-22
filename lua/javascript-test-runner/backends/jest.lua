@@ -160,6 +160,7 @@ function Module.build_debug_configuration(options)
 	return {
 		type = "pwa-node",
 		request = "launch",
+		console = "integratedTerminal",
 		runtimeExecutable = environment.node,
 		program = built_invocation.args[1],
 		args = args,
