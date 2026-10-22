@@ -47,14 +47,31 @@ local function add_target_arguments(config)
 	return args
 end
 
+local function find_local_jest_script(root)
+	local current_dir = root
+	while true do
+		local script = current_dir == "/" and "/node_modules/jest/bin/jest.js"
+			or current_dir .. "/node_modules/jest/bin/jest.js"
+		if vim.fn.filereadable(script) == 1 then
+			return script
+		end
+
+		local parent_dir = vim.fn.fnamemodify(current_dir, ":h")
+		if parent_dir == current_dir then
+			return nil
+		end
+		current_dir = parent_dir
+	end
+end
+
 local function invocation(options, root)
 	local environment = options.environment
-	local local_script = root .. "/node_modules/jest/bin/jest.js"
+	local local_script = find_local_jest_script(root)
 	local args
 	local command
 	local env = environment.env or {}
 
-	if vim.fn.filereadable(local_script) == 1 then
+	if local_script then
 		if type(environment.node) ~= "string" or environment.node == "" then
 			return nil, "Jest requires a Node executable for the local installation"
 		end
@@ -126,8 +143,12 @@ function Module.build_debug_configuration(options)
 	end
 
 	local environment = options.environment
-	local local_script = built_invocation.cwd .. "/node_modules/jest/bin/jest.js"
-	if built_invocation.command ~= environment.node or built_invocation.args[1] ~= local_script then
+	local local_script = find_local_jest_script(built_invocation.cwd)
+	if
+		not local_script
+		or built_invocation.command ~= environment.node
+		or built_invocation.args[1] ~= local_script
+	then
 		return nil, "Jest DAP requires a local Jest script and cannot use the npm or pnpm fallback"
 	end
 

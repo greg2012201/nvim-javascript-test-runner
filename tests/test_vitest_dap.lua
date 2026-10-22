@@ -9,8 +9,8 @@ local function clear_temporary_root()
 	vim.fn.delete(temporary_root, "rf")
 end
 
-local function create_project()
-	local root = temporary_root .. "/project"
+local function create_project(root, script_root)
+	root = root or temporary_root .. "/project"
 	local context = {
 		root = root,
 		package_json = root .. "/package.json",
@@ -19,7 +19,8 @@ local function create_project()
 	vim.fn.mkdir(root, "p")
 	vim.fn.writefile({ "{}" }, context.package_json)
 
-	local script = root .. "/node_modules/vitest/vitest.mjs"
+	script_root = script_root or root
+	local script = script_root .. "/node_modules/vitest/vitest.mjs"
 	vim.fn.mkdir(vim.fn.fnamemodify(script, ":h"), "p")
 	vim.fn.writefile({ "" }, script)
 
@@ -94,6 +95,29 @@ T["Vitest DAP configuration"]["builds a current-file launch configuration"] = fu
 			script = script,
 			args = { "run", file },
 			env = env,
+		})
+	)
+end
+
+T["Vitest DAP configuration"]["finds Vitest hoisted to a workspace root"] = function()
+	local workspace_root = temporary_root .. "/workspace"
+	local context, script = create_project(workspace_root .. "/packages/app", workspace_root)
+	local file = create_target({
+		context = context,
+		relative_path = "src/example.test.js",
+	})
+	local options = options_for({
+		context = context,
+		mode = "file",
+	})
+	options.file = file
+
+	eq(
+		build_debug_configuration(options),
+		expected_configuration({
+			context = context,
+			script = script,
+			args = { "run", file },
 		})
 	)
 end

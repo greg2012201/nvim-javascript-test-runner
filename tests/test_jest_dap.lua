@@ -9,8 +9,8 @@ local function clear_temporary_root()
 	vim.fn.delete(temporary_root, "rf")
 end
 
-local function create_project()
-	local root = temporary_root .. "/project"
+local function create_project(root)
+	root = root or temporary_root .. "/project"
 	vim.fn.mkdir(root, "p")
 
 	local context = {
@@ -22,11 +22,15 @@ local function create_project()
 	return context
 end
 
-local function create_local_jest_script(context)
-	local script = context.root .. "/node_modules/jest/bin/jest.js"
+local function create_jest_script(root)
+	local script = root .. "/node_modules/jest/bin/jest.js"
 	vim.fn.mkdir(vim.fn.fnamemodify(script, ":h"), "p")
 	vim.fn.writefile({ "" }, script)
 	return script
+end
+
+local function create_local_jest_script(context)
+	return create_jest_script(context.root)
 end
 
 local function create_target(context, relative_path)
@@ -76,6 +80,29 @@ T["Jest DAP configuration"]["builds a file launch configuration using local Jest
 		program = script,
 		cwd = context.root,
 		env = { TEST_MODE = "dap" },
+		args = {
+			"--runInBand",
+			"--runTestsByPath",
+			file,
+		},
+	})
+end
+
+T["Jest DAP configuration"]["finds Jest hoisted to a workspace root"] = function()
+	local workspace_root = temporary_root .. "/workspace"
+	local context = create_project(workspace_root .. "/packages/app")
+	local script = create_jest_script(workspace_root)
+	local file = create_target(context, "src/example.test.js")
+	local options = options_for(context, "file")
+	options.file = file
+
+	eq(build_debug_configuration(options), {
+		type = "pwa-node",
+		request = "launch",
+		runtimeExecutable = "/opt/node/bin/node",
+		program = script,
+		cwd = context.root,
+		env = {},
 		args = {
 			"--runInBand",
 			"--runTestsByPath",

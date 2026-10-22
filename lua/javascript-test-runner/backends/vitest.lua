@@ -29,6 +29,23 @@ local function append_target(args, options)
 	return args
 end
 
+local function find_local_vitest_script(root)
+	local current_dir = root
+	while true do
+		local script = current_dir == "/" and "/node_modules/vitest/vitest.mjs"
+			or current_dir .. "/node_modules/vitest/vitest.mjs"
+		if vim.fn.filereadable(script) == 1 then
+			return script
+		end
+
+		local parent_dir = vim.fn.fnamemodify(current_dir, ":h")
+		if parent_dir == current_dir then
+			return nil
+		end
+		current_dir = parent_dir
+	end
+end
+
 function Module.build_invocation(options)
 	if type(options) ~= "table" then
 		return nil, "Vitest invocation options must be a table"
@@ -54,12 +71,12 @@ function Module.build_invocation(options)
 		return nil, "Vitest invocation requires an environment table"
 	end
 
-	local local_script = root == "/" and "/node_modules/vitest/vitest.mjs" or root .. "/node_modules/vitest/vitest.mjs"
+	local local_script = find_local_vitest_script(root)
 	local command
 	local args = {}
 	local env = environment.env or {}
 
-	if vim.fn.filereadable(local_script) == 1 then
+	if local_script then
 		if type(environment.node) ~= "string" or environment.node == "" then
 			return nil, "Vitest requires a Node executable for the local Vitest script"
 		end
@@ -108,9 +125,12 @@ function Module.build_debug_configuration(options)
 	end
 
 	local environment = options.environment or {}
-	local local_script = invocation.cwd == "/" and "/node_modules/vitest/vitest.mjs"
-		or invocation.cwd .. "/node_modules/vitest/vitest.mjs"
-	if invocation.command ~= environment.node or invocation.args[1] ~= local_script then
+	local local_script = find_local_vitest_script(invocation.cwd)
+	if
+		not local_script
+		or invocation.command ~= environment.node
+		or invocation.args[1] ~= local_script
+	then
 		return nil, "Vitest DAP requires Node to launch a local Vitest script"
 	end
 
