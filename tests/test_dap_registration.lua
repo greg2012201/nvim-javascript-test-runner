@@ -156,4 +156,89 @@ T["DAP registration"]["DAP-enabled setup"]["notifies and installs no configs whe
 	]]), true)
 end
 
+T["DAP registration"]["DAP-enabled setup"]["follows test terminal output without changing unrelated sessions"] = function()
+	child.lua([[
+		local dap = {
+			ABORT = {},
+			adapters = {
+				["pwa-node"] = {
+					type = "server",
+					host = "127.0.0.1",
+					port = 9229,
+				},
+			},
+			configurations = {},
+			listeners = {
+				after = {},
+			},
+		}
+		package.loaded["dap"] = dap
+		package.loaded["javascript-test-runner.project"] = {
+			detect = function()
+				return { root = vim.fn.getcwd() }
+			end,
+			resolve_environment = function()
+				return { framework = "jest", node = "/usr/bin/node" }
+			end,
+		}
+		package.loaded["javascript-test-runner.backends"] = {
+			build_debug_configuration = function()
+				return {
+					type = "pwa-node",
+					request = "launch",
+					console = "integratedTerminal",
+				}
+			end,
+		}
+		require("javascript-test-runner").setup({ dap = true })
+
+		local config = dap.configurations.javascript[1]()
+		local session = {
+			config = vim.tbl_map(function(value)
+				return value
+			end, config),
+			closed = false,
+			on_close = {},
+		}
+		local follow = dap.listeners.after.event_initialized["javascript-test-runner-terminal-follow"]
+		follow(session)
+		vim.wait(100)
+
+		local test_buffer = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_set_current_buf(test_buffer)
+		local test_job = vim.fn.termopen({ "sh", "-c", "sleep 0.2; seq 1 100" })
+		session.term_buf = test_buffer
+		vim.wait(5000, function()
+			return vim.fn.jobwait({ test_job }, 0)[1] ~= -1
+		end)
+		vim.wait(50)
+		local test_followed = vim.api.nvim_win_get_cursor(0)[1] > 1 and vim.fn.winsaveview().topline > 1
+
+		local unrelated_buffer = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_set_current_buf(unrelated_buffer)
+		local unrelated_job = vim.fn.termopen({ "sh", "-c", "sleep 0.1; seq 1 100" })
+		follow({
+			config = { name = "User launch", console = "integratedTerminal" },
+			term_buf = unrelated_buffer,
+			closed = false,
+			on_close = {},
+		})
+		vim.wait(5000, function()
+			return vim.fn.jobwait({ unrelated_job }, 0)[1] ~= -1
+		end)
+		vim.wait(50)
+
+		_G.terminal_follow_result = {
+			test_followed = test_followed,
+			unrelated_unchanged = vim.api.nvim_win_get_cursor(0)[1] == 1
+				and vim.fn.winsaveview().topline == 1,
+		}
+	]])
+
+	eq(child.lua_get([[_G.terminal_follow_result]]), {
+		test_followed = true,
+		unrelated_unchanged = true,
+	})
+end
+
 return T

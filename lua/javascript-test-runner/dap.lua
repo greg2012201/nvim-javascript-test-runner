@@ -14,11 +14,15 @@ local filetypes = {
 }
 
 local registration_key = "__javascript_test_runner_dap_mode"
+local terminal_follow_config_key = "__javascript_test_runner_terminal_follow"
+local terminal_follow_listener_key = "javascript-test-runner-terminal-follow"
+local terminal_follow_session_key = "javascript-test-runner-terminal-follow"
 local supported_adapter_types = {
 	executable = true,
 	pipe = true,
 	server = true,
 }
+local terminal_follow_sessions = setmetatable({}, { __mode = "k" })
 
 local function notify_error(message)
 	vim.notify("javascript-test-runner: " .. message, vim.log.levels.ERROR)
@@ -95,6 +99,107 @@ local function abort_configuration(dap, name)
 	}
 end
 
+local function follow_terminal_output(buffer, state)
+	local scheduled = false
+
+	local function move_to_bottom()
+		scheduled = false
+		if
+			not state.active
+			or not vim.api.nvim_buf_is_valid(buffer)
+			or not vim.api.nvim_buf_is_loaded(buffer)
+		then
+			return
+		end
+
+		local line_count = vim.api.nvim_buf_line_count(buffer)
+		for _, window in ipairs(vim.api.nvim_list_wins()) do
+			if vim.api.nvim_win_is_valid(window) and vim.api.nvim_win_get_buf(window) == buffer then
+				vim.api.nvim_win_set_cursor(window, { line_count, 0 })
+			end
+		end
+	end
+
+	vim.api.nvim_buf_attach(buffer, false, {
+		on_lines = function()
+			if not state.active then
+				return true
+			end
+			if scheduled then
+				return
+			end
+
+			scheduled = true
+			vim.schedule(move_to_bottom)
+		end,
+		on_detach = function()
+			state.active = false
+		end,
+	})
+	vim.schedule(move_to_bottom)
+end
+
+local function watch_terminal(session)
+	if terminal_follow_sessions[session] then
+		return
+	end
+
+	local state = { active = true }
+	terminal_follow_sessions[session] = state
+
+	local function stop()
+		state.active = false
+		terminal_follow_sessions[session] = nil
+	end
+
+	if type(session.on_close) == "table" then
+		session.on_close[terminal_follow_session_key] = stop
+	end
+
+	local function attach_terminal()
+		if not state.active then
+			return
+		end
+		if session.closed then
+			stop()
+			return
+		end
+
+		local buffer = session.term_buf
+		if
+			type(buffer) == "number"
+			and vim.api.nvim_buf_is_valid(buffer)
+			and vim.api.nvim_buf_is_loaded(buffer)
+		then
+			follow_terminal_output(buffer, state)
+			return
+		end
+
+		vim.defer_fn(attach_terminal, 50)
+	end
+
+	vim.schedule(attach_terminal)
+end
+
+local function register_terminal_follower(dap)
+	dap.listeners = type(dap.listeners) == "table" and dap.listeners or {}
+	dap.listeners.after = type(dap.listeners.after) == "table" and dap.listeners.after or {}
+	dap.listeners.after.event_initialized = type(dap.listeners.after.event_initialized) == "table"
+			and dap.listeners.after.event_initialized
+		or {}
+	dap.listeners.after.event_initialized[terminal_follow_listener_key] = function(session)
+		if
+			type(session) ~= "table"
+			or type(session.config) ~= "table"
+			or session.config[terminal_follow_config_key] ~= true
+		then
+			return
+		end
+
+		watch_terminal(session)
+	end
+end
+
 local function resolve_configuration(dap, mode, name)
 	local options, options_error = build_options(mode)
 	if not options then
@@ -119,6 +224,9 @@ local function resolve_configuration(dap, mode, name)
 	end
 
 	result.name = result.name or name
+	if result.console == "integratedTerminal" then
+		result[terminal_follow_config_key] = true
+	end
 	return result
 end
 
@@ -173,6 +281,8 @@ function Module.setup()
 			return false
 		end
 	end
+
+	register_terminal_follower(dap)
 
 	local plugin_configurations = {}
 	for _, definition in ipairs(configurations) do

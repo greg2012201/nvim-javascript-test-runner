@@ -20,9 +20,12 @@ local T = new_set({
 	},
 })
 
-local function capture_invocation()
-	child.lua([[
+local function capture_invocation(job_id)
+	child.lua(string.format([[
 		vim.fn.jobstart = function(command, options)
+			_G.test_call_order = _G.test_call_order or {}
+			_G.test_call_order[#_G.test_call_order + 1] = "jobstart"
+			_G.test_job_exit = options.on_exit
 			vim.g.test_invocation = {
 				argv = command,
 				cwd = options.cwd,
@@ -30,10 +33,45 @@ local function capture_invocation()
 				env_is_dict = options.env == nil or not vim.islist(options.env),
 				term = options.term,
 				terminal_buffer = vim.api.nvim_get_current_buf(),
+				terminal_window = vim.api.nvim_get_current_win(),
+				job_id = %d,
 			}
-			return 1
+			return %d
+		end
+	]], job_id or 1, job_id or 1))
+end
+
+local function capture_mode_commands()
+	child.lua([[
+		local original_cmd = vim.cmd
+		_G.test_mode_calls = {}
+		_G.test_call_order = {}
+		vim.cmd = function(command)
+			if command == "startinsert" or command == "stopinsert" then
+				_G.test_call_order[#_G.test_call_order + 1] = command
+				_G.test_mode_calls[#_G.test_mode_calls + 1] = {
+					command = command,
+					buffer = vim.api.nvim_get_current_buf(),
+					window = vim.api.nvim_get_current_win(),
+				}
+				return
+			end
+			return original_cmd(command)
 		end
 	]])
+end
+
+local function setup_runner_test_file()
+	child.lua([[
+		require("javascript-test-runner").setup()
+		vim.cmd.edit("tests/fixtures/project-discovery/monorepo/packages/widget/src/nested/feature.test.js")
+		_G.test_source_window = vim.api.nvim_get_current_win()
+		_G.test_source_buffer = vim.api.nvim_get_current_buf()
+	]])
+end
+
+local function wait_for_mode_calls(count)
+	child.lua(string.format([[vim.wait(100, function() return #_G.test_mode_calls >= %d end)]], count))
 end
 
 T["running tests"] = new_set()
@@ -59,6 +97,124 @@ T["running tests"]["runs a test file from its nearest project directory"] = func
 
 	child.lua([[vim.api.nvim_set_current_buf(_G.source_buffer)]])
 	eq(child.lua_get([[vim.api.nvim_buf_is_valid(vim.g.test_invocation.terminal_buffer)]]), true)
+end
+
+T["running tests"]["starts terminal input in the runner window after successful startup"] = function()
+	setup_runner_test_file()
+	capture_invocation()
+	capture_mode_commands()
+	child.cmd("Test file")
+	wait_for_mode_calls(1)
+
+	eq(child.lua_get([[_G.test_call_order]]), { "jobstart", "startinsert" })
+	eq(child.lua_get([[_G.test_mode_calls]]), {
+		{
+			command = "startinsert",
+			buffer = child.lua_get([[vim.g.test_invocation.terminal_buffer]]),
+			window = child.lua_get([[vim.g.test_invocation.terminal_window]]),
+		},
+	})
+	eq(child.lua_get([[vim.g.test_invocation.job_id]]), 1)
+	eq(child.lua_get([[vim.api.nvim_buf_is_valid(vim.g.test_invocation.terminal_buffer)]]), true)
+	eq(
+		child.lua_get([[vim.api.nvim_win_get_buf(vim.g.test_invocation.terminal_window)]]),
+		child.lua_get([[vim.g.test_invocation.terminal_buffer]])
+	)
+end
+
+T["running tests"]["does not start terminal input when process startup fails"] = function()
+	setup_runner_test_file()
+	capture_invocation(0)
+	capture_mode_commands()
+	child.lua([[vim.notify = function() end]])
+	child.lua([[pcall(vim.cmd, "Test file")]])
+	wait_for_mode_calls(1)
+
+	eq(child.lua_get([[_G.test_call_order]]), { "jobstart" })
+	eq(child.lua_get([[_G.test_mode_calls]]), {})
+end
+
+T["running tests"]["stops terminal input on exit only when its window is current and unchanged"] = function()
+	setup_runner_test_file()
+	capture_invocation()
+	capture_mode_commands()
+	child.cmd("Test file")
+	wait_for_mode_calls(1)
+	child.lua([[
+		assert(type(_G.test_job_exit) == "function")
+		_G.test_job_exit(1, 0, "exit")
+		vim.wait(100, function() return #_G.test_mode_calls == 2 end)
+	]])
+
+	eq(child.lua_get([[_G.test_call_order]]), { "jobstart", "startinsert", "stopinsert" })
+	eq(child.lua_get([=[_G.test_mode_calls[2]]=]), {
+		command = "stopinsert",
+		buffer = child.lua_get([[vim.g.test_invocation.terminal_buffer]]),
+		window = child.lua_get([[vim.g.test_invocation.terminal_window]]),
+	})
+end
+
+T["running tests"]["does not steal source focus when the job exits"] = function()
+	setup_runner_test_file()
+	capture_invocation()
+	capture_mode_commands()
+	child.cmd("Test file")
+	wait_for_mode_calls(1)
+	child.lua([[
+		vim.api.nvim_set_current_win(_G.test_source_window)
+		_G.test_job_exit(1, 0, "exit")
+		vim.wait(100, function() return #_G.test_mode_calls > 1 end)
+	]])
+
+	eq(child.lua_get([[_G.test_call_order]]), { "jobstart", "startinsert" })
+	eq(child.lua_get([[vim.api.nvim_get_current_win()]]), child.lua_get([[_G.test_source_window]]))
+	eq(child.lua_get([[vim.api.nvim_get_current_buf()]]), child.lua_get([[_G.test_source_buffer]]))
+	eq(child.lua_get([[vim.api.nvim_win_is_valid(vim.g.test_invocation.terminal_window)]]), true)
+	eq(child.lua_get([[vim.api.nvim_buf_is_valid(vim.g.test_invocation.terminal_buffer)]]), true)
+	eq(
+		child.lua_get([[vim.api.nvim_win_get_buf(vim.g.test_invocation.terminal_window)]]),
+		child.lua_get([[vim.g.test_invocation.terminal_buffer]])
+	)
+end
+
+T["running tests"]["does not stop terminal input after its window changes buffers"] = function()
+	setup_runner_test_file()
+	capture_invocation()
+	capture_mode_commands()
+	child.cmd("Test file")
+	wait_for_mode_calls(1)
+	child.lua([[
+		_G.test_other_buffer = vim.api.nvim_create_buf(false, true)
+		vim.api.nvim_win_set_buf(vim.g.test_invocation.terminal_window, _G.test_other_buffer)
+		_G.test_job_exit(1, 0, "exit")
+		vim.wait(100, function() return #_G.test_mode_calls > 1 end)
+	]])
+
+	eq(child.lua_get([[_G.test_call_order]]), { "jobstart", "startinsert" })
+	eq(child.lua_get([[vim.api.nvim_get_current_win()]]), child.lua_get([[vim.g.test_invocation.terminal_window]]))
+	eq(
+		child.lua_get([[vim.api.nvim_win_get_buf(vim.g.test_invocation.terminal_window)]]),
+		child.lua_get([[_G.test_other_buffer]])
+	)
+	eq(child.lua_get([[vim.api.nvim_buf_is_valid(vim.g.test_invocation.terminal_buffer)]]), true)
+end
+
+T["running tests"]["does not stop terminal input after its window closes"] = function()
+	setup_runner_test_file()
+	capture_invocation()
+	capture_mode_commands()
+	child.cmd("Test file")
+	wait_for_mode_calls(1)
+	child.lua([[
+		vim.api.nvim_win_close(vim.g.test_invocation.terminal_window, true)
+		_G.test_job_exit(1, 0, "exit")
+		vim.wait(100)
+	]])
+
+	eq(child.lua_get([[_G.test_call_order]]), { "jobstart", "startinsert" })
+	eq(child.lua_get([[vim.api.nvim_win_is_valid(vim.g.test_invocation.terminal_window)]]), false)
+	eq(child.lua_get([[vim.api.nvim_get_current_win()]]), child.lua_get([[_G.test_source_window]]))
+	eq(child.lua_get([[vim.api.nvim_get_current_buf()]]), child.lua_get([[_G.test_source_buffer]]))
 end
 
 T["running tests"]["uses the working directory for an unnamed project run"] = function()

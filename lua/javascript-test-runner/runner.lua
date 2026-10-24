@@ -129,9 +129,25 @@ function Module.run(options)
 		return notify_error("Test invocation does not contain an environment map.")
 	end
 
+	local terminal_buffer
+	local terminal_window
 	local terminal_options = {
 		cwd = invocation.cwd,
 		term = true,
+		on_exit = function()
+			vim.schedule(function()
+				if not vim.api.nvim_win_is_valid(terminal_window) then
+					return
+				end
+				if vim.api.nvim_get_current_win() ~= terminal_window then
+					return
+				end
+				if vim.api.nvim_win_get_buf(terminal_window) ~= terminal_buffer then
+					return
+				end
+				vim.cmd("stopinsert")
+			end)
+		end,
 	}
 	if next(invocation.env) ~= nil then
 		terminal_options.env = invocation.env
@@ -139,7 +155,8 @@ function Module.run(options)
 
 	vim.cmd("vnew")
 
-	local terminal_buffer = vim.api.nvim_get_current_buf()
+	terminal_buffer = vim.api.nvim_get_current_buf()
+	terminal_window = vim.api.nvim_get_current_win()
 	vim.bo[terminal_buffer].bufhidden = "hide"
 	vim.bo[terminal_buffer].buflisted = true
 
@@ -152,6 +169,8 @@ function Module.run(options)
 		vim.cmd("close")
 		return notify_error("Could not start test process.")
 	end
+
+	vim.cmd("startinsert")
 
 	return true
 end
