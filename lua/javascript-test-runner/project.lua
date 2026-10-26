@@ -1,9 +1,9 @@
 local Module = {}
 local Utils = require("javascript-test-runner.utils")
+local Config = require("javascript-test-runner.config")
 local Node = require("javascript-test-runner.node")
 local PackageManager = require("javascript-test-runner.package-manager")
 local Framework = require("javascript-test-runner.framework")
-local Plugin = require("javascript-test-runner")
 
 local read_json_file = Utils.read_json_file
 
@@ -165,7 +165,7 @@ local function resolve_env(params)
 end
 
 function Module.resolve_environment(context, scope)
-	local config = Plugin.get_config()
+	local config = Config.get()
 	local root = workspace_root(context.root)
 	local override = matching_override(root, config.project_overrides)
 	local node_version = override and override.node_version
