@@ -1,25 +1,36 @@
 # JavaScript Test Runner
 
-A Neovim plugin for running tests from JavaScript and TypeScript projects.
+A batteries-included, zero-configuration test runner for JavaScript development
+in Neovim. It detects Node.js projects and their npm or pnpm setup, and
+automatically uses the Node.js version configured for each project. Run Jest
+or Vitest tests for the current file, its folder, the project, or the test on
+the current line. Optional `nvim-dap` integration lets you debug supported
+test runs.
+
+## Features
+
+- Run Jest or Vitest tests by file, folder, project, or current line.
+- Detect the nearest `package.json`, test framework, and npm or pnpm setup.
+- Use a local test runner when available, with npm or pnpm execution as a
+  fallback.
+- Optionally register Jest and Vitest debug configurations with `nvim-dap`.
 
 ## Requirements
 
 - Neovim 0.9 or newer
-- Node.js
+- Node.js, available on your `PATH` or managed with `nvm`, `fnm`, `mise`,
+  `asdf`, or Volta
 - A JavaScript or TypeScript project with a `package.json`
-- Jest installed in the project, or available through `npx`
+- Jest or Vitest installed in the project, or available through npm or pnpm
 
 ## Installation
 
-### Local checkout
-
-For a private repository or local development checkout, point `lazy.nvim`
-directly at the repository:
+Add the plugin to your [lazy.nvim](https://github.com/folke/lazy.nvim) plugin
+specs:
 
 ```lua
 {
-  dir = vim.fn.expand("~/src/javascript-test-runner"),
-  name = "javascript-test-runner",
+  "greg2012201/nvim-javascript-test-runner",
   ft = {
     "javascript",
     "javascriptreact",
@@ -33,57 +44,26 @@ directly at the repository:
 }
 ```
 
-Update the `dir` value to the location of your checkout.
+Then run `:Lazy sync`.
 
-### Private Git repository
-
-If the repository is hosted privately on GitHub and your SSH key has access,
-use its SSH clone URL:
-
-```lua
-{
-  "git@github.com:OWNER/javascript-test-runner.git",
-  name = "javascript-test-runner",
-  ft = {
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact",
-  },
-  opts = {},
-  config = function(_, opts)
-    require("javascript-test-runner").setup(opts)
-  end,
-}
-```
-
-Replace `OWNER` with the GitHub account or organization that owns the
-repository. Verify access outside Neovim with:
-
-```bash
-ssh -T git@github.com
-```
+The plugin also works with other Neovim plugin managers. Install the repository
+with your manager and call `require("javascript-test-runner").setup()` from its
+configuration hook.
 
 ## Usage
 
-The current Jest backend provides these commands:
+Run a command from a JavaScript or TypeScript project:
 
-```text
-:Test file
-:Test folder
-:Test project
-:Test line
-```
+| Command         | Runs tests for               |
+| --------------- | ---------------------------- |
+| `:Test file`    | The current file             |
+| `:Test folder`  | The current file's folder    |
+| `:Test project` | The whole project            |
+| `:Test line`    | The test on the current line |
 
-Default keymaps:
-
-| Keymap       | Action                           |
-| ------------ | -------------------------------- |
-| `<Leader>tf` | Run tests for the current file   |
-| `<Leader>tl` | Run the test on the current line |
-
-The line mode recognizes calls such as `test("name")`, `it("name")`, and
-`describe("name")`.
+The default keymaps are `<Leader>tf` for the current file and `<Leader>tl` for
+the current line. Line mode recognizes calls such as `test("name")`,
+`it("name")`, and `describe("name")`.
 
 The plugin searches upward from the current buffer for the nearest
 `package.json`, detects Jest or Vitest, and selects npm or pnpm for fallback
@@ -91,27 +71,21 @@ execution when a local test runner is unavailable.
 
 ## Configuration
 
-The command name and default keymaps can be changed:
+Configure the command name and keymaps with `setup`:
 
 ```lua
-{
-  dir = vim.fn.expand("~/src/javascript-test-runner"),
-  name = "javascript-test-runner",
-  opts = {
-    command_name = "Test",
-    keymaps = {
-      file = "<Leader>tf",
-      line = "<Leader>tl",
-    },
-    dap = false,
+require("javascript-test-runner").setup({
+  command_name = "Test",
+  keymaps = {
+    file = "<Leader>tf",
+    line = "<Leader>tl",
   },
-  config = function(_, opts)
-    require("javascript-test-runner").setup(opts)
-  end,
-}
+})
 ```
 
 Set either keymap to `false` to disable it.
+
+### Project overrides
 
 Automatic project detection is used unless you configure project-specific
 overrides. Override keys are project roots; in a monorepo, the workspace root
@@ -140,19 +114,21 @@ Values in `env` are passed only to the test process and do not change Neovim's
 environment. Without a workspace marker, overrides use the nearest
 `package.json` project root.
 
-For Jest, ESM is detected from a package's `"type": "module"` or test files
-with `.mjs`/`.mts` extensions in the selected scope. Folder and project runs
-also check nested package scopes. The runner adds `--experimental-vm-modules`
-to the Jest process's `NODE_OPTIONS` when needed, preserving inherited and
-configured options. This enables Jest's ESM runtime; it does not configure
-transforms or other Jest settings required by some TypeScript, JSX, or
-mixed-module projects. Vitest does not receive this Jest-specific option.
+### Running tests with nvim-dap
 
-## Current scope
+Set `dap = true` to register file, folder, and line configurations with
+`nvim-dap`:
 
-The plugin provides Jest and Vitest terminal runners for file, folder, project,
-and current-line test execution. The backends are kept separate so additional
-JavaScript test frameworks can be added later.
+```lua
+require("javascript-test-runner").setup({
+  dap = true,
+})
+```
+
+This requires `nvim-dap` and a supported `pwa-node` adapter. Jest or Vitest
+must be installed locally in the project for debugging. The plugin's debug
+terminals follow their output; unrelated DAP sessions and terminals are
+unchanged.
 
 ## Testing
 
