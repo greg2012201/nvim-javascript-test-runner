@@ -89,14 +89,6 @@ local function resolve_jest(project_root)
 	}
 end
 
-function Module.has_test_on_current_line()
-	return Module.get_current_test_name_in_line(get_current_line()) ~= nil
-end
-
-function Module.get_current_test_name_in_line(line)
-	return get_current_test_name_in_line(line)
-end
-
 function Module.build_jest_invocation(mode)
 	if not modes[mode] then
 		return nil, "Invalid Jest mode. Use file, folder, project, or line."
