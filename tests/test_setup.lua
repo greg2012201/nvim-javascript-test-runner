@@ -31,7 +31,7 @@ T["setup()"]["uses configured command and keymaps, including a disabled mapping"
 
   eq(child.lua_get([[
     (function()
-      local config = require("javascript-test-runner").get_config()
+      local config = require("javascript-test-runner.config").get()
       return {
         command_name = config.command_name,
         file_keymap = config.keymaps.file,
@@ -63,13 +63,12 @@ T["setup()"]["allows disabling the file mapping"] = function()
   eq(child.lua_get([[vim.fn.maparg("<Leader>ty", "n") ~= ""]]), true)
 end
 
-T["setup()"]["uses public defaults"] = function()
+T["setup()"]["uses defaults through the config getter"] = function()
   setup()
 
   local config = child.lua_get([[
     (function()
-      local runner = require("javascript-test-runner")
-      local config = runner.get_config()
+      local config = require("javascript-test-runner.config").get()
       return {
         command_name = config.command_name,
         file_keymap = config.keymaps.file,
@@ -85,6 +84,40 @@ T["setup()"]["uses public defaults"] = function()
     line_keymap = "<Leader>tl",
     dap = false,
   })
+end
+
+T["setup()"]["returns a defensive config copy"] = function()
+  child.lua([[
+    require("javascript-test-runner").setup({
+      project_overrides = {
+        ["/workspace/project"] = {
+          env = {
+            NODE_OPTIONS = "--existing",
+          },
+        },
+      },
+    })
+
+    local config = require("javascript-test-runner.config").get()
+    config.keymaps.file = "<Leader>changed"
+    config.project_overrides["/workspace/project"].env.NODE_OPTIONS = "--changed"
+  ]])
+
+  eq(
+    child.lua_get([[
+      (function()
+        local config = require("javascript-test-runner.config").get()
+        return {
+          file_keymap = config.keymaps.file,
+          node_options = config.project_overrides["/workspace/project"].env.NODE_OPTIONS,
+        }
+      end)()
+    ]]),
+    {
+      file_keymap = "<Leader>tf",
+      node_options = "--existing",
+    }
+  )
 end
 
 T["setup()"]["rejects unsupported package-manager overrides"] = function()
@@ -136,7 +169,7 @@ T["setup()"]["accepts Node versions understood by version managers"] = function(
 
   eq(
     child.lua_get([[
-      require("javascript-test-runner").get_config().project_overrides["/workspace/project"].node_version
+      require("javascript-test-runner.config").get().project_overrides["/workspace/project"].node_version
     ]]),
     "lts/*"
   )
