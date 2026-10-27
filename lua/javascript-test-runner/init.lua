@@ -18,10 +18,6 @@ local function register_command(command_name)
 	})
 end
 
-function Module.run(mode)
-	return run(mode)
-end
-
 function Module.setup(opts)
 	if configured then
 		return Module
