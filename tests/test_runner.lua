@@ -21,7 +21,8 @@ local T = new_set({
 })
 
 local function capture_invocation(job_id)
-	child.lua(string.format([[
+	child.lua(string.format(
+		[[
 		vim.fn.jobstart = function(command, options)
 			_G.test_call_order = _G.test_call_order or {}
 			_G.test_call_order[#_G.test_call_order + 1] = "jobstart"
@@ -38,7 +39,10 @@ local function capture_invocation(job_id)
 			}
 			return %d
 		end
-	]], job_id or 1, job_id or 1))
+	]],
+		job_id or 1,
+		job_id or 1
+	))
 end
 
 local function capture_mode_commands()
@@ -268,10 +272,7 @@ T["running tests"]["runs a Vitest project through the public command"] = functio
 
 	eq(child.lua_get([[vim.g.test_invocation.argv]]), { "npm", "exec", "--", "vitest", "run" })
 	eq(child.lua_get([[vim.g.test_invocation.cwd]]), project_root)
-	eq(
-		child.lua_get(string.format([[vim.g.test_invocation.env.PATH:sub(1, #%q)]], node_bin)),
-		node_bin
-	)
+	eq(child.lua_get(string.format([[vim.g.test_invocation.env.PATH:sub(1, #%q)]], node_bin)), node_bin)
 	eq(
 		child.lua_get(string.format([[vim.g.test_invocation.env.PATH:sub(#%q + 1, #%q + 1)]], node_bin, node_bin)),
 		package.config:sub(3, 3)

@@ -48,6 +48,8 @@ local function get_current_test_name_in_line(line)
 	return line:match('^%s*[%w_%.]+%s*%(%s*"([^"]*)"')
 end
 
+Module.get_current_test_name_in_line = get_current_test_name_in_line
+
 local function get_current_line()
 	return vim.api.nvim_get_current_line()
 end
